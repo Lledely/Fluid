@@ -1,9 +1,10 @@
-#ifndef FIXED_H
-#define FIXED_H
+#pragma once
 
 #include <cstddef>
 #include <compare>
 #include <cstdint>
+#include <random>
+#include <iostream>
 
 namespace types {
     
@@ -29,12 +30,37 @@ public:
         return ret;
     }
 
+    friend const Fixed operator+( const Fixed &a, const Fixed &b) { return from_raw(a.v + b.v); }
+    friend const Fixed operator-( const Fixed &a, const Fixed &b) { return from_raw(a.v - b.v); }
+    friend const Fixed operator*( const Fixed &a, const Fixed &b) { return from_raw(((int64_t) a.v * b.v) >> 16); }
+    friend const Fixed operator/( const Fixed &a, const Fixed &b) { return from_raw(((int64_t) a.v << 16) / b.v); }
+
+    constexpr Fixed& operator+=( const Fixed &b ) { return (*this) = (*this) + b; }
+    constexpr Fixed& operator-=( const Fixed &b ) { return (*this) = (*this) - b; }
+    constexpr Fixed& operator*=( const Fixed &b ) { return (*this) = (*this) * b; }
+    constexpr Fixed& operator/=( const Fixed &b ) { return (*this) = (*this) / b; }
+
+    Fixed operator-( void ) { return from_raw(-(*this).v); }
+
+    friend std::ostream &operator<<(std::ostream &out, Fixed x) {
+        return out << x.v / (double) (1 << 16);
+    }
+
+    friend Fixed abs(Fixed x) {
+        if (x.v < 0) {
+            x.v = -x.v;
+        }
+        return x;
+    }
+
+    static Fixed get_random( void ) {
+        std::mt19937 rnd(1337);
+        return Fixed::from_raw((rnd() & ((1 << 16) - 1)));
+    }
+
 };
 
 template <size_t N, size_t K>
 using FastFixed = Fixed<N, K, true>;
 
 } /* types */
-
-
-#endif /* FIXED_H */
