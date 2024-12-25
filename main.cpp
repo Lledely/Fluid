@@ -10,6 +10,7 @@
 #include <limits>
 #include <stdexcept>
 #include <FluidSimulation.h>
+#include <NotDumbFluidSimulation.h>
 
 using namespace std;
 

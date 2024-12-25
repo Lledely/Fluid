@@ -8,32 +8,6 @@
 #include <ranges>
 #include <Fixed.h>
 
-#ifdef FLOAT
-#error "FLOAT is already defined"
-#endif
-#ifdef DOUBLE
-#error "DOUBLE is already defined"
-#endif
-#ifdef FIXED
-#error "FIXED is already defined"
-#endif
-#ifdef FAST_FIXED
-#error "FAST_FIXED is already defined"
-#endif
-
-#define FLOAT float
-#define DOUBLE double
-#define FAST_FIXED(N, K) types::FastFixed<N, K>
-#define FIXED(N, K) types::Fixed<N, K>
-
-constexpr std::string_view kFloatTypeName   = "FLOAT";
-constexpr std::string_view kDoubleTypeName  = "DOUBLE";
-
-constexpr size_t T = 1'000'000;
-constexpr std::array<std::pair<int, int>, 4> deltas{{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}};
-
-constexpr std::size_t max_size = std::numeric_limits<std::size_t>::max();
-
 template <typename P, typename V, typename FV, std::size_t rows_num, std::size_t cols_num>
 struct FluidSimulation {
     static constexpr bool m_is_static = rows_num != max_size && cols_num != max_size;
@@ -157,7 +131,6 @@ struct FluidSimulation {
     }
 
     P random01( void ) {
-        std::mt19937 rnd(1337);
         if constexpr (std::is_same<P, float>::value) {
             return static_cast<P>(float(rnd()) / rnd.max());
         } else if constexpr (std::is_same<P, double>::value) {

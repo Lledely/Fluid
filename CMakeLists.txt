@@ -6,4 +6,6 @@ include_directories(include)
 
 add_executable(Fluid 
         main.cpp
-        src/Fixed.cpp)
+        src/Fixed.cpp
+        src/FluidSimulation.cpp
+        src/NotDumbFluidSimulation.cpp)
