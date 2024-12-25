@@ -52,12 +52,6 @@ public:
         }
         return x;
     }
-
-    static Fixed get_random( void ) {
-        std::mt19937 rnd(1337);
-        return Fixed::from_raw((rnd() & ((1 << 16) - 1)));
-    }
-
 };
 
 template <size_t N, size_t K>
