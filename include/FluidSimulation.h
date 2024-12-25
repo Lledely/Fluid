@@ -26,13 +26,16 @@
 #define FAST_FIXED(N, K) types::FastFixed<N, K>
 #define FIXED(N, K) types::Fixed<N, K>
 
+constexpr std::string_view kFloatTypeName   = "FLOAT";
+constexpr std::string_view kDoubleTypeName  = "DOUBLE";
+
 constexpr size_t T = 1'000'000;
 constexpr std::array<std::pair<int, int>, 4> deltas{{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}};
 
 constexpr std::size_t max_size = std::numeric_limits<std::size_t>::max();
 
 template <typename P, typename V, typename FV, std::size_t rows_num, std::size_t cols_num>
-struct SmartFluidSimulation {
+struct FluidSimulation {
     static constexpr bool m_is_static = rows_num != max_size && cols_num != max_size;
 
     template <typename Type>
@@ -48,12 +51,12 @@ struct SmartFluidSimulation {
     using PStorage = StorageType<P>;
     using IStorage = StorageType<int>;
     
-    Field field();
+    Field field{};
     P rho[256];
     std::size_t rows, cols;
 
-    PStorage p(), old_p();
-    IStorage dirs(), last_use();
+    PStorage p{}, old_p{};
+    IStorage dirs{}, last_use{};
 
     int UT = 0;
     V gravity;
@@ -97,7 +100,7 @@ struct SmartFluidSimulation {
 
     VelocityField<V> velocity{}, velocity_flow{};
 
-    explicit constexpr SmartFluidSimulation(const std::vector<std::vector<char>>& fld, float air_rho, int fluid_rho, float g) requires(m_is_static) : gravity(g) {
+    explicit constexpr FluidSimulation(const std::vector<std::vector<char>>& fld, float air_rho, int fluid_rho, float g) requires(m_is_static) : gravity(g) {
         assert(fld.size() == rows_num);
         assert(fld.front().size() == cols_num);
         // std::cout << "Static version with sizes: " << rows_num << " " << cols_num - 1 << std::endl;
@@ -105,19 +108,20 @@ struct SmartFluidSimulation {
         cols = fld.front().size() - 1;
         velocity.f(rows, cols);
         velocity_flow.f(rows, cols);
-        for (std::size_t i = 0; const auto& row : field) {
+        for (std::size_t i = 0; i < field.size(); ++i) {
             const std::vector<char>& tmp_row = fld[i];
-            assert(tmp_row.size() == row.size());
-            std::ranges::copy(tmp_row, row.begin());
-            i++;
+            assert(tmp_row.size() == field[i].size());
+            for (std::size_t j = 0; j < field[i].size(); ++j) {
+                field[i][j] = tmp_row[j];
+            }
         }
         rho[' '] = air_rho;
         rho['.'] = fluid_rho;
     }
 
-    explicit constexpr SmartFluidSimulation(const Field& fld, float air_rho, int fluid_rho, float g) requires(!m_is_static): SmartFluidSimulation(fld, air_rho, fluid_rho, g, fld.size(), fld.front().size()) {}
+    explicit constexpr FluidSimulation(const Field& fld, float air_rho, int fluid_rho, float g) requires(!m_is_static): FluidSimulation(fld, air_rho, fluid_rho, g, fld.size(), fld.front().size()) {}
 
-    explicit constexpr SmartFluidSimulation(const Field& fld, float air_rho, int fluid_rho, float g, std::size_t rowCount, std::size_t colCount) requires(!m_is_static): gravity(g), field(fld),
+    explicit constexpr FluidSimulation(const Field& fld, float air_rho, int fluid_rho, float g, std::size_t rowCount, std::size_t colCount) requires(!m_is_static): gravity(g), field(fld),
                          p(rowCount, typename PStorage::value_type(colCount)),
                          old_p(rowCount, typename PStorage::value_type(colCount)),
                          dirs(rowCount, typename IStorage::value_type(colCount)),
@@ -154,7 +158,13 @@ struct SmartFluidSimulation {
 
     P random01( void ) {
         std::mt19937 rnd(1337);
-        return types::Fixed::from_raw((rnd() & ((1 << 16) - 1)));
+        if constexpr (std::is_same<P, float>::value) {
+            return static_cast<P>(float(rnd()) / rnd.max());
+        } else if constexpr (std::is_same<P, double>::value) {
+            return static_cast<P>(double(rnd()) / rnd.max());
+        } else {
+            return P::from_raw((rnd() & ((1 << P::getK()) - 1)));
+        }
     }
     
     std::tuple<P, bool, std::pair<int, int>> propagate_flow(int x, int y, P lim) {
@@ -170,7 +180,7 @@ struct SmartFluidSimulation {
                 }
                 // assert(v >= velocity_flow.get(x, y, dx, dy));
                 V res = cap - static_cast<V>(flow);
-                auto vp = min(lim, static_cast<P>(res));
+                auto vp = std::min(lim, static_cast<P>(res));
                 if (last_use[nx][ny] == UT - 1) {
                     velocity_flow.add(x, y, dx, dy, static_cast<FV>(vp));
                     last_use[x][y] = UT;
@@ -349,7 +359,7 @@ struct SmartFluidSimulation {
                 for (std::size_t x = 0; x < rows; ++x) {
                     for (std::size_t y = 0; y < cols; ++y) {
                         if (field[x][y] != '#' && last_use[x][y] != UT) {
-                            auto [transferred, localPropagation, _] = propagate_move(x, y, 1);
+                            auto [transferred, localPropagation, _] = propagate_flow(x, y, 1);
                             if (transferred > static_cast<P>(0)) {
                                 propagation = true;
                             }
